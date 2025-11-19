@@ -12,7 +12,7 @@ body {
 }
 
 .container-max {
-  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  @apply max-w-7xl mx-auto px-3 sm:px-4 lg:px-6;
 }
 
 .card {
@@ -20,7 +20,7 @@ body {
 }
 
 .card-header {
-  @apply flex items-center justify-between p-4 border-b border-gray-100;
+  @apply flex items-center justify-between p-2 border-b border-gray-100;
 }
 
 .section-title {

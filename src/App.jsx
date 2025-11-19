@@ -23,10 +23,24 @@ export default function App() {
   const [filters, setFilters] = useState({ broker: '', client_id: '', ticker: '', product: '', action: '', account: '', status: '' })
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode')
+    return saved ? JSON.parse(saved) : false
+  })
   const loadMoreRef = useRef(null)
 
   // Keep AbortController in a ref so we can cancel previous requests
   const abortRef = useRef(null)
+
+  // Update dark mode class on document
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+    localStorage.setItem('darkMode', JSON.stringify(darkMode))
+  }, [darkMode])
 
   // Centralized loadData: fetch aliases (once) and data for active tab
   // append: whether to append results (loadMore) or replace (fresh load)
@@ -167,55 +181,60 @@ export default function App() {
   }, [hasMore, loading, loadingMore, page, filters])
 
   return (
-    <div>
-      <Header onRefresh={() => loadData(1, false)} onNewOrder={() => setOrderOpen(true)} />
+    <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
+      <Header 
+        onRefresh={() => loadData(1, false)} 
+        onNewOrder={() => setOrderOpen(true)}
+        darkMode={darkMode}
+        onToggleDarkMode={() => setDarkMode(prev => !prev)}
+      />
 
-      <main className="container-max py-6">
+      <main className="container-max py-3">
         {error && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
             {error}
           </div>
         )}
 
         {/* Tab Navigation */}
-        <div className="mb-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
+        <div className="mb-3 border-b border-gray-200 dark:border-gray-700">
+          <nav className="-mb-px flex space-x-6">
             <button
               onClick={() => handleTabChange('positions')}
-              className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+              className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium ${
                 activeTab === 'positions'
-                  ? 'border-brand-600 text-brand-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'
               }`}
             >
               Open Positions
             </button>
             <button
               onClick={() => handleTabChange('internal')}
-              className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+              className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium ${
                 activeTab === 'internal'
-                  ? 'border-brand-600 text-brand-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'
               }`}
             >
               Internal Orders
             </button>
             <button
               onClick={() => handleTabChange('broker')}
-              className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+              className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium ${
                 activeTab === 'broker'
-                  ? 'border-brand-600 text-brand-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'
               }`}
             >
               Broker Orders
             </button>
             <button
               onClick={() => handleTabChange('trades')}
-              className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+              className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium ${
                 activeTab === 'trades'
-                  ? 'border-brand-600 text-brand-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'
               }`}
             >
               Trades
@@ -223,11 +242,11 @@ export default function App() {
           </nav>
         </div>
 
-        <section className="grid grid-cols-1 gap-6">
+        <section className="grid grid-cols-1">
           <div className="lg:col-span-2">
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-              <div className="card-header">
-                <h2 className="section-title">
+            <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="card-header dark:border-gray-700">
+                <h2 className="section-title dark:text-gray-100">
                   {activeTab === 'positions' && 'Open Positions'}
                   {activeTab === 'internal' && 'Internal Orders'}
                   {activeTab === 'broker' && 'Broker Orders'}
@@ -301,7 +320,7 @@ export default function App() {
                 />
               )}
 
-              <div className="p-3 text-center text-sm text-gray-500" ref={loadMoreRef}>
+              <div className="p-2 text-center text-xs text-gray-500" ref={loadMoreRef}>
                 {hasMore ? ' ' : 'No more results'}
               </div>
             </div>
