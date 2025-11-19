@@ -20,10 +20,9 @@ export async function getAliases() {
   return http('GET', '/aliases')
 }
 
-export async function getPositions(filters = {}, opts = {}) {
-  // Serialize non-empty filters into query string
+function buildQueryParams(filters = {}, opts = {}) {
   const params = new URLSearchParams()
-  const upperKeys = new Set(['ticker', 'action', 'product', 'client_id', 'broker'])
+  const upperKeys = new Set(['ticker', 'action', 'product', 'client_id', 'broker', 'status'])
   Object.entries(filters).forEach(([k, v]) => {
     if (v === undefined || v === null) return
     let s = `${v}`.trim()
@@ -35,9 +34,35 @@ export async function getPositions(filters = {}, opts = {}) {
   const limit = Number(opts.limit || 20)
   if (page) params.set('page', String(page))
   if (limit) params.set('limit', String(limit))
-  const qs = params.toString()
+  return params.toString()
+}
+
+export async function getPositions(filters = {}, opts = {}) {
+  const qs = buildQueryParams(filters, opts)
   const path = qs ? `/positions_json?${qs}` : '/positions_json'
-  return http('GET', path)
+  const result = await http('GET', path)
+  return result?.data || result || []
+}
+
+export async function getInternalOrders(filters = {}, opts = {}) {
+  const qs = buildQueryParams(filters, opts)
+  const path = qs ? `/internal_order?${qs}` : '/internal_order'
+  const result = await http('GET', path)
+  return result?.data || result || []
+}
+
+export async function getBrokerOrders(filters = {}, opts = {}) {
+  const qs = buildQueryParams(filters, opts)
+  const path = qs ? `/broker_order?${qs}` : '/broker_order'
+  const result = await http('GET', path)
+  return result?.data || result || []
+}
+
+export async function getTrades(filters = {}, opts = {}) {
+  const qs = buildQueryParams(filters, opts)
+  const path = qs ? `/trades?${qs}` : '/trades'
+  const result = await http('GET', path)
+  return result?.data || result || []
 }
 
 export async function placeOrder(form) {

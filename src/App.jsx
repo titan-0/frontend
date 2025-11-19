@@ -1,69 +1,160 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import Header from './components/Header'
 import PositionsTable from './components/PositionsTable'
+import InternalOrdersTable from './components/InternalOrdersTable'
+import BrokerOrdersTable from './components/BrokerOrdersTable'
+import TradesTable from './components/TradesTable'
 import PlaceOrderForm from './components/PlaceOrderForm'
 import SlideOver from './components/SlideOver'
-import { getAliases, getPositions } from './lib/api'
+import { getAliases, getPositions, getInternalOrders, getBrokerOrders, getTrades } from './lib/api'
 
 export default function App() {
   const PAGE_SIZE = 20
+  const [activeTab, setActiveTab] = useState('positions')
   const [aliases, setAliases] = useState([])
   const [positions, setPositions] = useState([])
+  const [internalOrders, setInternalOrders] = useState([])
+  const [brokerOrders, setBrokerOrders] = useState([])
+  const [trades, setTrades] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [orderOpen, setOrderOpen] = useState(false)
-  const [filters, setFilters] = useState({ broker: '', client_id: '', ticker: '', product: '', action: '', account: '' })
+  const [filters, setFilters] = useState({ broker: '', client_id: '', ticker: '', product: '', action: '', account: '', status: '' })
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const loadMoreRef = useRef(null)
 
-  async function loadData() {
-    setLoading(true)
-    setError('')
+  // Keep AbortController in a ref so we can cancel previous requests
+  const abortRef = useRef(null)
+
+  // Centralized loadData: fetch aliases (once) and data for active tab
+  // append: whether to append results (loadMore) or replace (fresh load)
+  const loadData = useCallback(async (pageToLoad = 1, append = false) => {
+    // Cancel prior request(s)
+    if (abortRef.current) {
+      abortRef.current.abort()
+    }
+    const ac = new AbortController()
+    abortRef.current = ac
+
+    if (!append) {
+      setLoading(true)
+      setError('')
+    } else {
+      setLoadingMore(true)
+    }
+
     try {
-      const effectiveLimit = Math.min(page * PAGE_SIZE, 20)
-      const [a, p] = await Promise.all([
-        getAliases(),
-        getPositions(filters, { page: 1, limit: effectiveLimit || PAGE_SIZE })
+      // Fetch data based on active tab
+      let dataPromise
+      switch (activeTab) {
+        case 'positions':
+          dataPromise = getPositions(filters, { page: pageToLoad, limit: PAGE_SIZE, signal: ac.signal })
+          break
+        case 'internal':
+          dataPromise = getInternalOrders(filters, { page: pageToLoad, limit: PAGE_SIZE, signal: ac.signal })
+          break
+        case 'broker':
+          dataPromise = getBrokerOrders(filters, { page: pageToLoad, limit: PAGE_SIZE, signal: ac.signal })
+          break
+        case 'trades':
+          dataPromise = getTrades(filters, { page: pageToLoad, limit: PAGE_SIZE, signal: ac.signal })
+          break
+        default:
+          dataPromise = Promise.resolve([])
+      }
+
+      const [a, data] = await Promise.all([
+        getAliases({ signal: ac.signal }),
+        dataPromise
       ])
-      setAliases(a)
-      setPositions(p)
-      setHasMore((p?.length || 0) >= Math.min(PAGE_SIZE, effectiveLimit))
-      setPage(Math.ceil((p?.length || 0) / PAGE_SIZE) || 1)
+
+      // Update aliases only on fresh load
+      if (!append) {
+        setAliases(a)
+      }
+
+      // Update the appropriate state based on active tab
+      if (!append) {
+        switch (activeTab) {
+          case 'positions':
+            setPositions(data)
+            break
+          case 'internal':
+            setInternalOrders(data)
+            break
+          case 'broker':
+            setBrokerOrders(data)
+            break
+          case 'trades':
+            setTrades(data)
+            break
+        }
+        setPage(pageToLoad)
+      } else {
+        switch (activeTab) {
+          case 'positions':
+            setPositions((prev) => [...prev, ...data])
+            break
+          case 'internal':
+            setInternalOrders((prev) => [...prev, ...data])
+            break
+          case 'broker':
+            setBrokerOrders((prev) => [...prev, ...data])
+            break
+          case 'trades':
+            setTrades((prev) => [...prev, ...data])
+            break
+        }
+        setPage(pageToLoad)
+      }
+
+      // If server returns fewer than PAGE_SIZE, then no more pages
+      setHasMore((data?.length || 0) === PAGE_SIZE)
     } catch (e) {
+      // Ignore abort errors (they're expected during cancellation)
+      if (e?.name === 'AbortError') return
       setError(e?.message || 'Failed to load data')
     } finally {
-      setLoading(false)
+      if (!append) setLoading(false)
+      setLoadingMore(false)
+      // clear abortRef if this request finished normally
+      if (abortRef.current === ac) abortRef.current = null
     }
-  }
+  }, [filters, activeTab])
 
+  // loadMore increments page and appends
   async function loadMore() {
     if (loading || loadingMore || !hasMore) return
-    setLoadingMore(true)
-    try {
-      const nextPage = page + 1
-      const p = await getPositions(filters, { page: nextPage, limit: PAGE_SIZE })
-      setPositions((prev) => [...prev, ...p])
-      setPage(nextPage)
-      setHasMore((p?.length || 0) === PAGE_SIZE)
-    } catch (e) {
-      // keep existing items; surface error subtly
-      setError(e?.message || 'Failed to load more')
-    } finally {
-      setLoadingMore(false)
-    }
+    const nextPage = page + 1
+    await loadData(nextPage, true)
   }
 
+  // Initial load + periodic refresh that respects latest filters (by using loadData from deps)
   useEffect(() => {
-    loadData()
-    const id = setInterval(loadData, 150000)
-    return () => clearInterval(id)
-  }, [])
+    // On filter changes or tab changes we want a fresh load starting at page 1
+    loadData(1, false)
+    const id = setInterval(() => loadData(1, false), 15000) // 2.5 minutes
+    return () => {
+      clearInterval(id)
+      if (abortRef.current) abortRef.current.abort()
+    }
+  }, [loadData])
 
+  // Handle tab changes
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
+    setPage(1)
+    setHasMore(true)
+    setError('')
+    setFilters({ broker: '', client_id: '', ticker: '', product: '', action: '', account: '', status: '' })
+  }
+
+  // IntersectionObserver: observe the sentinel element once it mounts, re-register when deps change
   useEffect(() => {
-    if (!loadMoreRef.current) return
     const el = loadMoreRef.current
+    if (!el) return
     const io = new IntersectionObserver((entries) => {
       const [entry] = entries
       if (entry.isIntersecting) {
@@ -72,11 +163,12 @@ export default function App() {
     }, { root: null, rootMargin: '200px', threshold: 0 })
     io.observe(el)
     return () => io.disconnect()
-  }, [loadMoreRef.current, hasMore, loading, loadingMore, page, filters])
+    // We include the states that should cause re-observation (hasMore etc.)
+  }, [hasMore, loading, loadingMore, page, filters])
 
   return (
     <div>
-      <Header onRefresh={loadData} onNewOrder={() => setOrderOpen(true)} />
+      <Header onRefresh={() => loadData(1, false)} onNewOrder={() => setOrderOpen(true)} />
 
       <main className="container-max py-6">
         {error && (
@@ -85,37 +177,130 @@ export default function App() {
           </div>
         )}
 
-        {/* Filters moved to a slide-over, opened from header */}
+        {/* Tab Navigation */}
+        <div className="mb-6 border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => handleTabChange('positions')}
+              className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+                activeTab === 'positions'
+                  ? 'border-brand-600 text-brand-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              Open Positions
+            </button>
+            <button
+              onClick={() => handleTabChange('internal')}
+              className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+                activeTab === 'internal'
+                  ? 'border-brand-600 text-brand-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              Internal Orders
+            </button>
+            <button
+              onClick={() => handleTabChange('broker')}
+              className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+                activeTab === 'broker'
+                  ? 'border-brand-600 text-brand-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              Broker Orders
+            </button>
+            <button
+              onClick={() => handleTabChange('trades')}
+              className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+                activeTab === 'trades'
+                  ? 'border-brand-600 text-brand-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              Trades
+            </button>
+          </nav>
+        </div>
 
         <section className="grid grid-cols-1 gap-6">
           <div className="lg:col-span-2">
             <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
               <div className="card-header">
-                <h2 className="section-title">Open Positions</h2>
+                <h2 className="section-title">
+                  {activeTab === 'positions' && 'Open Positions'}
+                  {activeTab === 'internal' && 'Internal Orders'}
+                  {activeTab === 'broker' && 'Broker Orders'}
+                  {activeTab === 'trades' && 'Trades'}
+                </h2>
                 {loading && <span className="text-sm text-gray-500">Refreshing…</span>}
               </div>
-              <PositionsTable
-                data={positions}
-                onChanged={loadData}
-                loading={loading}
-                loadingMore={loadingMore}
-                filters={filters}
-                onFiltersChange={(newFilters) => {
-                  setFilters(newFilters)
-                  setPage(1)
-                  setHasMore(true)
-                  setLoading(true)
-                  setError('')
-                  getPositions(newFilters, { page: 1, limit: PAGE_SIZE })
-                    .then((p) => {
-                      setPositions(p)
-                      setHasMore((p?.length || 0) === PAGE_SIZE)
-                      setPage(1)
-                    })
-                    .catch((e) => setError(e?.message || 'Failed to load data'))
-                    .finally(() => setLoading(false))
-                }}
-              />
+
+              {activeTab === 'positions' && (
+                <PositionsTable
+                  data={positions}
+                  onChanged={() => loadData(1, false)}
+                  loading={loading}
+                  loadingMore={loadingMore}
+                  filters={filters}
+                  onFiltersChange={(newFilters) => {
+                    setFilters(newFilters)
+                    setPage(1)
+                    setHasMore(true)
+                    setError('')
+                    loadData(1, false)
+                  }}
+                />
+              )}
+
+              {activeTab === 'internal' && (
+                <InternalOrdersTable
+                  data={internalOrders}
+                  loading={loading}
+                  loadingMore={loadingMore}
+                  filters={filters}
+                  onFiltersChange={(newFilters) => {
+                    setFilters(newFilters)
+                    setPage(1)
+                    setHasMore(true)
+                    setError('')
+                    loadData(1, false)
+                  }}
+                />
+              )}
+
+              {activeTab === 'broker' && (
+                <BrokerOrdersTable
+                  data={brokerOrders}
+                  loading={loading}
+                  loadingMore={loadingMore}
+                  filters={filters}
+                  onFiltersChange={(newFilters) => {
+                    setFilters(newFilters)
+                    setPage(1)
+                    setHasMore(true)
+                    setError('')
+                    loadData(1, false)
+                  }}
+                />
+              )}
+
+              {activeTab === 'trades' && (
+                <TradesTable
+                  data={trades}
+                  loading={loading}
+                  loadingMore={loadingMore}
+                  filters={filters}
+                  onFiltersChange={(newFilters) => {
+                    setFilters(newFilters)
+                    setPage(1)
+                    setHasMore(true)
+                    setError('')
+                    loadData(1, false)
+                  }}
+                />
+              )}
+
               <div className="p-3 text-center text-sm text-gray-500" ref={loadMoreRef}>
                 {hasMore ? ' ' : 'No more results'}
               </div>
@@ -128,7 +313,7 @@ export default function App() {
             aliases={aliases}
             onSubmitted={() => {
               setOrderOpen(false)
-              loadData()
+              loadData(1, false)
             }}
           />
         </SlideOver>
@@ -146,3 +331,4 @@ export default function App() {
     </div>
   )
 }
+
