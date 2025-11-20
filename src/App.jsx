@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Header from './components/Header'
+import LoginPage from './components/LoginPage'
 import PositionsTable from './components/PositionsTable'
 import InternalOrdersTable from './components/InternalOrdersTable'
 import BrokerOrdersTable from './components/BrokerOrdersTable'
@@ -9,6 +11,11 @@ import SlideOver from './components/SlideOver'
 import { getAliases, getPositions, getInternalOrders, getBrokerOrders, getTrades } from './lib/api'
 
 export default function App() {
+  const navigate = useNavigate()
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return !!localStorage.getItem('authToken')
+  })
+  
   const PAGE_SIZE = 20
   const [activeTab, setActiveTab] = useState('positions')
   const [aliases, setAliases] = useState([])
@@ -180,6 +187,22 @@ export default function App() {
     // We include the states that should cause re-observation (hasMore etc.)
   }, [hasMore, loading, loadingMore, page, filters])
 
+  const handleLogout = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    setIsAuthenticated(false)
+  }
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true)
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLoginSuccess} />
+  }
+
+  // Show main app if authenticated
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
       <Header 
@@ -187,6 +210,7 @@ export default function App() {
         onNewOrder={() => setOrderOpen(true)}
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode(prev => !prev)}
+        onLogout={handleLogout}
       />
 
       <main className="container-max py-3">

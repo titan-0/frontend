@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default function Header({ onRefresh, onNewOrder, darkMode, onToggleDarkMode }) {
+export default function Header({ onRefresh, onNewOrder, darkMode, onToggleDarkMode, onLogout }) {
   return (
     <header className="sticky top-0 z-10 bg-gradient-to-r from-brand-600 via-brand-600 to-brand-700 text-white shadow dark:from-gray-800 dark:via-gray-800 dark:to-gray-900">
       <div className="container-max py-2 flex items-center gap-4">
@@ -47,6 +47,18 @@ export default function Header({ onRefresh, onNewOrder, darkMode, onToggleDarkMo
             </svg>
             Refresh
           </button>
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-medium hover:bg-red-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              title="Sign out"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign Out
+            </button>
+          )}
         </div>
       </div>
     </header>
