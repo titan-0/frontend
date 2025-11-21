@@ -2,19 +2,16 @@
 
 A modern, high-performance UI for managing trading positions built with React 18, Vite, and Tailwind CSS.
 
-## ✨ Features
 
-- ⚡ **React 18 + Vite** - Lightning-fast dev and production builds with HMR
-- 🎨 **Tailwind CSS** - Utility-first styling for rapid development
-- 🔐 **JWT Authentication** - Secure login with token-based auth
-- 📊 **Positions Dashboard** - View and manage open positions
-- 📋 **Orders Management** - Track internal and broker orders
-- 💰 **Trades Tracking** - Monitor completed trades
-- 📝 **Place Orders** - Submit new orders with alias selection
-- 🔄 **Real-time Updates** - Responsive data with pagination
-- 📱 **Fully Responsive** - Works on desktop, tablet, and mobile
-- 🎯 **Modern UI Components** - Glassmorphism design with smooth animations
-- 🎪 **Icon Library** - Beautiful icons with Lucide React
+## Run using docker
+
+1. Build the frontend using:
+    `docker build -t frontend .`
+
+2. Open the docker and run the frontend container using      following command:
+    `docker run -p 5173:5173 -e VITE_BACKEND_URL=http://host.docker.internal:8000 frontend`
+
+    
 
 ## Prerequisites
 
