@@ -30,7 +30,10 @@ export default function PlaceOrderForm({ aliases = [], onSubmitted }) {
     setSubmitting(true)
     setError('')
     try {
-      await placeOrder(form)
+      const res = await placeOrder(form)
+      if(res.status=="success"){
+        console.log("inserted the new order successfully");
+      }
       setForm(defaultForm)
       onSubmitted?.()
     } catch (e) {
@@ -54,6 +57,7 @@ export default function PlaceOrderForm({ aliases = [], onSubmitted }) {
           <label className="block text-sm font-medium text-gray-700">Alias</label>
           <select value={form.alias} onChange={(e) => update('alias', e.target.value)} required className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500">
             <option value="" disabled>Select alias</option>
+            <option value="yes">Yes</option>
             {aliases.map((a) => (
               <option key={a} value={a}>{a}</option>
             ))}
