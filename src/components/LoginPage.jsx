@@ -14,8 +14,8 @@ export default function LoginPage({ onLogin }) {
     setLoading(true)
 
     try {
-      // const base = 'http://3.7.250.160:8000/login';
-      const base = 'http://localhost:8000/login';
+      const base = 'http://13.205.18.78:8000/login';
+      // const base = 'http://localhost:8000/login';
       // Call the login API endpoint
       const response = await fetch(base, {
         method: 'POST',

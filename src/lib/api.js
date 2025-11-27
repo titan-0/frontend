@@ -1,6 +1,5 @@
-// In production, API calls go to /api and nginx proxies to backend
-// In dev, Vite proxies /api to backend
-const API_BASE = '/api'
+// API Base URL - uses environment variable or falls back to /api proxy
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 async function http(method, path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
